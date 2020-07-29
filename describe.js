@@ -7,6 +7,11 @@
 		isModule = true;
 	}
 
+	if (typeof clearTimeout !== 'function' ){
+		var clearTimeout = function(){};
+		var setTimeout = function(){};
+	}
+
 	var options = {
 		timeout: 500,
 		callbackMode: false
@@ -28,6 +33,74 @@
 
 		process.exit(data.total-data.passed);
 
+	}
+
+	function outputMongoConsole(data, options){
+		String.prototype.color = function() {
+			if (!arguments) return this;
+			var colors;
+			if (arguments.length==1 && typeof(colors)=="string") colors = [arguments[i]];
+			colors = arguments;
+			var code = '';
+			for (var i = 0;i<colors.length;i++) code+=ANSI.get(colors[i]);
+			return code+this+ANSI.get('reset');
+		};
+
+		//ANSI color and style codes.
+		var ANSI = {
+
+			'prefix'    : "\u001B[",
+			'suffix'    : "m",
+
+			//Styles
+
+			'reset'     :  0,
+			'bold'      :  1,
+			'/bold'     : 22,
+			'italic'    :  3,
+			'/italic'   : 23,
+			'underline' :  4,
+			'/underline': 24,
+			'conceal'   :  8,
+			'strike'    :  9,
+			'/strike'   : 29,
+			'reverse'   :  7,
+			'blink'     :  5,
+			'blink2'    :  6,
+
+			//Colors
+
+			'black'     : 30,
+			'red'       : 31,
+			'green'     : 32,
+			'yellow'    : 33,
+			'blue'      : 34,
+			'purple'    : 35,
+			'cyan'      : 36,
+			'white'     : 37,
+			'default'   : 39,
+
+			//Backgrounds
+
+			'bgblack'   : 40,
+			'bgred'     : 41,
+			'bggreen'   : 42,
+			'bgyellow'  : 43,
+			'bgblue'    : 44,
+			'bgpurple'  : 45,
+			'bgcyan'    : 46,
+			'bgwhite'   : 47,
+			'bgdefault' : 49,
+
+			'get': function(color) {
+				code = this[color];
+				if (code===false) return 0;
+				return this.prefix+code+this.suffix;
+			}
+
+		};
+
+		print(getOutput(data));
 	}
 
 	function getOutput(data) {
@@ -67,7 +140,7 @@
 			};
 		}  else {
 			if (subject&&subject.message) callback(subject);
-			else if (subject==expected||options.getError) callback(null);
+			else if ((typeof deepEqual === "function" ? deepEqual(subject, expected) : subject == expected)||options.getError) callback(null);
 			else callback(new Error("Expected "+expected+" but got "+subject));
 		}
 	}
@@ -76,7 +149,7 @@
 
 		var done, timer, errorExpected;
 
-		function respond(e) {
+		function respond(e, result) {
 			if (done) return;
 			done = true;
 			if (errorExpected) {
@@ -87,14 +160,15 @@
 					e = new Error("Expected error '"+errorExpected+"' but got "+e);
 				}
 			}
-			callback(e);
+			callback(e, result);
 			clearTimeout(timer);
 		}
 
 		try {
-			fun.call({
+			let error = [];
+			let result = fun.call({
 				expect: function(a,b) {
-					return expect(a, b, respond, options);
+					return expect(a, b, e => e ? error.push(e) : null, options);
 				},
 				expectError: function(a,b) {
 					options.getError = true;
@@ -102,6 +176,7 @@
 					return expect(a, b, respond, options);
 				}
 			});
+			respond(error.length === 0 ? null : error.length === 1 ? error[0] : error, result)
 		} catch (e) {
 			respond(e);
 			clearTimeout(timer);
@@ -139,14 +214,14 @@
 				if (hooks.beforeEach) hooks.beforeEach();
 				var returned = false;
 				total++;
-				runTest(my.tests[name], function(error) {
+				runTest(my.tests[name], function(error, result) {
 					if (returned) {
 						results[name] = new Error("Duplicate callback");
 						return;
 					}
 					returned = true;
 					pending--;
-					results[name] = error;
+					results[name] = error || result || null;
 					if (error === null) passed++;
 					else {
 						errors[name] = error;
@@ -207,6 +282,7 @@
 	describe.logResults = function() {
 		describe.getResults(function(data) {
 			if (typeof window !== "undefined") outputDOM(data, options);
+			else if (typeof Mongo !== "undefined") outputMongoConsole(data, options);
 			else outputConsole(data, options);
 		});
 	};
