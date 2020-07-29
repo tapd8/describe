@@ -9,27 +9,35 @@ load('../describe.js');
 
 describe('A human-readable description of the test group.', {
     beforeAll: function(){
+
+        db.test.insertOne({TXN_ID: '2873HFNC892', INVC_NBR: 123765})
+        db.test.insertOne({TXN_ID: '2873HFNC892', INVC_NBR: 123766})
+
         print('Execute before running all test cases.');
     },
     beforeEach: function(){
         print('Execute before each test case runs.');
     },
     afterAll () {
+
+        db.test.deleteMany({TXN_ID: '2873HFNC892'});
+
         print('Execute after running all test cases.');
     },
     afterEach () {
         print('Execute after each test case runs.');
     },
-    'throw error': function () {
-        throw new Error('throw custom error');
+    'test collection has 2 record': function () {
+        let count = db.test.count({TXN_ID: /2873/});
+        this.expect(count, 2);
+
+        return count;
     },
-    'native assert': function () {
-        assert(1 === 2)
-    },
-    'assert array equals': function () {
-        this.expect([1, 2], [2, 1]);
-        this.expect([1, 2,3 ], [2, 1, 3]);
-        print('assert array equals done.');
+    'one INVC_NBR 123766': function(){
+        let count = db.test.count({INVC_NBR: 123766});
+        this.expect(count, 1);
+
+        return count;
     }
 });
 
@@ -59,6 +67,17 @@ describe('Test case group 2', {
     ['assert test'] () {
         this.expect('a', 'b');
         this.expect('c', 'd');
+    },
+    'throw error': function () {
+        throw new Error('throw custom error');
+    },
+    'native assert': function () {
+        assert(1 === 2)
+    },
+    'assert array equals': function () {
+        this.expect([1, 2], [2, 1]);
+        this.expect([1, 2,3 ], [2, 1, 3]);
+        print('assert array equals done.');
     }
 });
 
